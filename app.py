@@ -1,105 +1,116 @@
+from google.colab import drive
+drive.mount('/content/drive',force_remount=True)
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import streamlit as st
-from google.cloud import bigquery
-from google.oauth2 import service_account
+bc_file_path = '/content/drive/My Drive/bcdata/bitcoin.csv'
+etc_file_path = '/content/drive/My Drive/etcdata/etherium.csv'
+bc_daily_file_path = '/content/drive/My Drive/bcdata/bitcoin-daily.csv'
+etc_daily_file_path = '/content/drive/My Drive/etcdata/etherium-daily.csv'
 
-# ---- PAGE SETUP ---- #
-st.set_page_config(page_title="Crypto Transactions Blog & Visualizer", layout="centered")
-st.title("📊 Cryptocurrency Analytics Blog")
+# Load datasets
+btc_df = pd.read_csv(bc_file_path)
+eth_df = pd.read_csv(etc_file_path)
+btc_daily_df = pd.read_csv(bc_daily_file_path)
+eth_daily_df = pd.read_csv(etc_daily_file_path)
 
-st.markdown("""
-Welcome to this interactive blog on **Cryptocurrency Transaction Volumes and Fees**. In this post, we explore:
-- The evolution of transaction activity on **Bitcoin** and **Ethereum**
-- How transaction **fees** have fluctuated over time
-- What these trends imply about **network congestion**, **adoption**, and **scalability**
+# Convert month to datetime
+btc_df['month'] = pd.to_datetime(btc_df['month'])
+eth_df['month'] = pd.to_datetime(eth_df['month'])
+btc_daily_df['transaction_date'] = pd.to_datetime(btc_daily_df['transaction_date'])
+eth_daily_df['transaction_date'] = pd.to_datetime(eth_daily_df['transaction_date'])
 
-Use the interactive visualizer below to generate custom plots for **2, 5, or 10 years** of data directly fetched from **Google BigQuery**.
-""")
+# Calculate average fees
+btc_df['avg_fee_btc'] = btc_df['total_fee_btc'] / btc_df['transaction_count']
+eth_df['avg_fee_eth'] = eth_df['total_fee_eth'] / eth_df['transaction_count']
 
-# ---- SIDEBAR CONTROLS ---- #
-year_range = st.sidebar.selectbox("Select data range (years):", [10, 5, 2], index=0)
-st.sidebar.markdown("Choose how many years of data to include")
+# Sorting the dates: just for ensuring
+btc_daily_df.sort_values('transaction_date', inplace=True)
+eth_daily_df.sort_values('transaction_date', inplace=True)
 
-# ---- BIGQUERY SETUP ---- #
-# Load your service account credentials (make sure to keep them safe and secure)
-credentials = service_account.Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"]
-)
+# Set common style
+plt.style.use('ggplot')
 
-client = bigquery.Client(credentials=credentials, project=credentials.project_id)
+# 1. Bitcoin transaction volume
+plt.figure(figsize=(12, 6))
+plt.plot(btc_df['month'], btc_df['transaction_count'], marker='o')
+plt.title("Bitcoin Transaction Volume Over 10 Years")
+plt.xlabel("Month")
+plt.ylabel("Number of Transactions Per Month")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-# ---- QUERY DATA FROM BIGQUERY ---- #
-def load_btc_eth_data(years):
-    query_template = """
-        SELECT
-          FORMAT_DATE('%Y-%m', DATE(block_timestamp)) AS month,
-          COUNT(*) AS transaction_count,
-          SUM(CAST({fee_column} AS FLOAT64)) / POWER(10, {divider}) AS total_fee
-        FROM `{table}`
-        WHERE DATE(block_timestamp) >= DATE_SUB(CURRENT_DATE(), INTERVAL {years} YEAR)
-        GROUP BY month
-        ORDER BY month
-    """
+# 2. Bitcoin total fees
+plt.figure(figsize=(12, 6))
+plt.plot(btc_df['month'], btc_df['total_fee_btc'], marker='o', color='purple')
+plt.title("Bitcoin Total Transaction Fees (BTC)")
+plt.xlabel("Month")
+plt.ylabel("Total Fees in BTC Per Month")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-    btc_query = query_template.format(
-        fee_column="fee",
-        divider="8",
-        table="bigquery-public-data.crypto_bitcoin.transactions",
-        years=years
-    )
+# Plot 3: Bitcoin Average Fee Per Transaction
+plt.figure(figsize=(12, 6))
+plt.plot(btc_df['month'], btc_df['avg_fee_btc'], marker='o', color='darkblue')
+plt.title("Bitcoin Average Fee Per Transaction (BTC)")
+plt.xlabel("Month")
+plt.ylabel("Avg Fee (BTC)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-    eth_query = query_template.format(
-        fee_column="gas_price * gas",
-        divider="18",
-        table="bigquery-public-data.crypto_ethereum.transactions",
-        years=years
-    )
+# 4. Ethereum transaction volume
+plt.figure(figsize=(12, 6))
+plt.plot(eth_df['month'], eth_df['transaction_count'], marker='o', color='green')
+plt.title("Ethereum Transaction Volume Over 10 Years")
+plt.xlabel("Month")
+plt.ylabel("Number of Transactions Per Month")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-    btc_df = client.query(btc_query).to_dataframe()
-    eth_df = client.query(eth_query).to_dataframe()
+# 5. Ethereum total gas fees
+plt.figure(figsize=(12, 6))
+plt.plot(eth_df['month'], eth_df['total_fee_eth'], marker='o', color='red')
+plt.title("Ethereum Total Gas Fees (ETH)")
+plt.xlabel("Month")
+plt.ylabel("Total Gas Fees in ETH Per Month")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-    btc_df['month'] = pd.to_datetime(btc_df['month'])
-    eth_df['month'] = pd.to_datetime(eth_df['month'])
-    btc_df['avg_fee'] = btc_df['total_fee'] / btc_df['transaction_count']
-    eth_df['avg_fee'] = eth_df['total_fee'] / eth_df['transaction_count']
+# 6: Ethereum Average Fee Per Transaction
+plt.figure(figsize=(12, 6))
+plt.plot(eth_df['month'], eth_df['avg_fee_eth'], marker='o', color='darkred')
+plt.title("Ethereum Average Fee Per Transaction (ETH)")
+plt.xlabel("Month")
+plt.ylabel("Avg Fee (ETH)")
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-    return btc_df, eth_df
+# 7. Compare BTC vs ETH Average Transaction Fees
+plt.figure(figsize=(12, 6))
+plt.plot(btc_df['month'], btc_df['avg_fee_btc'], label='Bitcoin Avg Fee (BTC)', color='blue')
+plt.plot(eth_df['month'], eth_df['avg_fee_eth'], label='Ethereum Avg Fee (ETH)', color='orange')
+plt.title("BTC vs ETH Average Transaction Fee Comparison")
+plt.xlabel("Month")
+plt.ylabel("Avg Fee (BTC / ETH)")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
 
-btc_df, eth_df = load_btc_eth_data(year_range)
+# 8. Plot comparison
+plt.figure(figsize=(14, 7))
+plt.plot(btc_daily_df['transaction_date'], btc_daily_df['daily_transaction_count'], label='Bitcoin', color='blue', alpha=0.7)
+plt.plot(eth_daily_df['transaction_date'], eth_daily_df['daily_transaction_count'], label='Ethereum', color='orange', alpha=0.7)
 
-# ---- VISUALIZATIONS ---- #
-st.header("📈 Transaction Volume Over Time")
-fig1, ax1 = plt.subplots(figsize=(12, 5))
-ax1.plot(btc_df['month'], btc_df['transaction_count'], label='Bitcoin', marker='o')
-ax1.plot(eth_df['month'], eth_df['transaction_count'], label='Ethereum', marker='o')
-ax1.set_title("Monthly Transaction Volume")
-ax1.set_xlabel("Month")
-ax1.set_ylabel("Transactions")
-ax1.legend()
-st.pyplot(fig1)
-
-st.header("💸 Total Transaction Fees")
-fig2, ax2 = plt.subplots(figsize=(12, 5))
-ax2.plot(btc_df['month'], btc_df['total_fee'], label='Bitcoin Fees (BTC)', marker='o')
-ax2.plot(eth_df['month'], eth_df['total_fee'], label='Ethereum Fees (ETH)', marker='o')
-ax2.set_title("Monthly Total Fees")
-ax2.set_xlabel("Month")
-ax2.set_ylabel("Fees")
-ax2.legend()
-st.pyplot(fig2)
-
-st.header("🧮 Average Fee per Transaction")
-fig3, ax3 = plt.subplots(figsize=(12, 5))
-ax3.plot(btc_df['month'], btc_df['avg_fee'], label='Bitcoin Avg Fee', marker='o')
-ax3.plot(eth_df['month'], eth_df['avg_fee'], label='Ethereum Avg Fee', marker='o')
-ax3.set_title("Average Transaction Fee")
-ax3.set_xlabel("Month")
-ax3.set_ylabel("Fee per Transaction")
-ax3.legend()
-st.pyplot(fig3)
-
-st.markdown("---")
-st.markdown("\nThis blog was built using [Streamlit](https://streamlit.io/) and connects live to Google BigQuery for real-time blockchain data.")
-
+plt.title("Daily Transactions: Bitcoin vs Ethereum")
+plt.xlabel("Date")
+plt.ylabel("Number of Transactions")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
