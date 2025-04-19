@@ -23,8 +23,8 @@ st.sidebar.markdown("Choose how many years of data to analyze.")
 # --- Load data from GitHub ---
 @st.cache_data
 def load_data():
-    btc_url = "https://raw.githubusercontent.com/keeplearningpro/crypto-visualizer/main/bitcoin.csv"
-    eth_url = "https://raw.githubusercontent.com/keeplearningpro/crypto-visualizer/main/ethereum.csv"
+    btc_url = "https://raw.githubusercontent.com/keeplearningpro/crypto-visualizer/main/bitcoin_monthly_data.csv"
+    eth_url = "https://raw.githubusercontent.com/keeplearningpro/crypto-visualizer/main/ethereum_monthly_data.csv"
 
     btc_df = pd.read_csv(btc_url)
     eth_df = pd.read_csv(eth_url)
